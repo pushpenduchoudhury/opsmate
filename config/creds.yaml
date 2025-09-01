@@ -1,0 +1,19 @@
+credentials:
+  usernames:
+    pushpendu:
+      email: pushpendu@tcs.com
+      name: Pushpendu Choudhury
+      password: $2b$12$7PPueEtInUbH3GCKONApkeAiardnfcbwF2kAhah86Bclr9ioiFOxy
+      roles: ["user"]
+    admin:
+      email: admin@tcs.com
+      name: Administrator
+      password: $2b$12$Rk9a3oBPMfnetUZY/kVgY.3UaXtMSxc3B/m/XO7ks0XAFJTx6r7VG
+      roles: ["admin"]
+cookie:
+  expiry_days: 30
+  key: cookie1
+  name: temporary_cookie
+preauthorized:
+  emails:
+  - pushpendu@tcs.com
