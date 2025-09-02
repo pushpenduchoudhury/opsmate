@@ -50,7 +50,7 @@ if st.session_state.get('authentication_status'):
         col1.markdown(f""":grey[*Welcome,*] <br> **{st.session_state.get('name')} :grey[({','.join(st.session_state.get('roles'))})]**""", unsafe_allow_html = True)
         
         with col2:
-            authenticator.logout(button_name = ":material/logout:", use_container_width = True)
+            authenticator.logout(button_name = ":material/logout:")
         
     pages = {
         "🏠︎ Home": [
@@ -58,7 +58,7 @@ if st.session_state.get('authentication_status'):
         ],
         "♕ Apps": [
             st.Page(Path(conf.PAGES_DIR, "opsmate.py"), title = "OpsMate", icon = ":material/chat:"),
-            st.Page(Path(conf.PAGES_DIR, "analytics.py"), title = "Incident Analytics", icon = ":material/chat:"),
+            st.Page(Path(conf.PAGES_DIR, "analytics.py"), title = "Incident Analytics", icon = ":material/analytics:"),
         ],
     }
     
