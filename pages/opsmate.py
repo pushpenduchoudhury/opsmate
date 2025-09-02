@@ -47,6 +47,7 @@ with title_col[1]:
     st.header("NextGen OpsMate", divider = "rainbow", anchor = False)
 with title_col[2]:
     st.write("")
+    st.write("")
     st.button(":material/mop:", on_click = lambda: clear_messages(), type = "secondary", use_container_width = True)
 
     
@@ -165,8 +166,8 @@ def url_loader(url):
     
 def split_documents(documents) -> list[str]:
     """ Load a text file and split it into chunks."""
-    chunk_size = 2000
-    chunk_overlap = 300
+    chunk_size = conf.CHUNK_SIZE
+    chunk_overlap = conf.CHUNK_OVERLAP
     text_splitter = RecursiveCharacterTextSplitter(chunk_size = chunk_size, chunk_overlap = chunk_overlap)
     chunks = text_splitter.split_documents(documents)
     return chunks

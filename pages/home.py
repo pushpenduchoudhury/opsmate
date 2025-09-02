@@ -17,20 +17,24 @@ st.set_page_config(
 
 st.header("IT Support Desk", anchor = False, divider = "red")
 
-apps = [
-    {"name": "NextGen OpsMate",
-     "description": "The IT Services Incident Response Assistant is an AI-powered app that helps IT support teams quickly resolve incidents. By analyzing incident descriptions, it provides step-by-step instructions, escalation paths, and links to relevant documentation, significantly reducing resolution time.",
-     "page": "opsmate.py",
-     "image_icon": "opsmate.gif",
-    },
-    {"name": "Incident Analytics",
-     "description": "Incident ticket analytics provide insights into the volume, types, resolution times, and trends of IT support issues. This data helps identify bottlenecks, improve processes, and optimize resource allocation for faster and more efficient problem resolution.",
-     "page": "analytics.py",
-     "image_icon": "analytics.png",
-    },
-]
+apps = conf.APPS
 
-no_of_apps = len(apps)
+user_role = st.session_state.get("roles")
+accessible_apps = []
+if user_role is not None:
+    if "admin" in user_role:
+        accessible_apps = apps
+    else:
+        for app in apps:
+            if len(list(set(user_role).intersection(set(app["access_privilege_role"])))) > 0:
+                accessible_apps.append(app)
+
+    if len(accessible_apps) == 0:
+        st.info("You do not have the privilege to view any Apps. Please reach out to the administrator for access...!")
+        st.stop()
+
+
+no_of_apps = len(accessible_apps)
 app_grid_cols = 4
 app_grid_rows = math.ceil(no_of_apps/app_grid_cols)
 tile_height = 285
@@ -46,18 +50,18 @@ for row in range(app_grid_rows):
         with st_cols[col].container(border = True, height = tile_height):
             
             # Image
-            st.image(image = str(Path(conf.ASSETS_DIR, apps[app_num]["image_icon"])), width = image_width)
+            st.image(image = str(Path(conf.ASSETS_DIR, accessible_apps[app_num]["image_icon"])), width = image_width)
             
             # App Title
-            st.subheader(apps[app_num]["name"], divider = "grey", anchor = False)
+            st.subheader(accessible_apps[app_num]["name"], divider = "grey", anchor = False)
             
             # App Description
             desc_col = st.columns(1)
             with desc_col[0].container(border = False, height = int(0.18 * tile_height)):
-                st.markdown(f'<span style="font-size: 16px; text-align: center;">{apps[app_num]["description"]}</span>', unsafe_allow_html = True)
+                st.markdown(f'<span style="font-size: 16px; text-align: center;">{accessible_apps[app_num]["description"]}</span>', unsafe_allow_html = True)
             
             # App Launch Button
             if st.button("Launch", key = f"app_{app_num}"):
-                st.switch_page(Path(conf.PAGES_DIR, apps[app_num]["page"]))
+                st.switch_page(Path(conf.PAGES_DIR, accessible_apps[app_num]["page"]))
                 
             app_num += 1

@@ -38,8 +38,12 @@ st.set_page_config(
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
 
-def clear_messages():
-    st.session_state.chat_messages = st.session_state.chat_messages[:1]
+def clear_session_state_on_logout():
+    """Clears relevant items from st.session_state upon logout."""
+    keys_to_clear = ["authentication_status", "chat_messages"] 
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
 
 authenticator.login(location = 'main')
 
@@ -51,15 +55,34 @@ if st.session_state.get('authentication_status'):
         
         with col2:
             authenticator.logout(button_name = ":material/logout:")
-        
+    
+    apps = conf.APPS
+    user_role = st.session_state.get("roles")
+    accessible_apps = []
+    
+    if user_role is not None:
+        if "admin" in user_role:
+            accessible_apps = apps
+        else:
+            for app in apps:
+                if len(list(set(user_role).intersection(set(app["access_privilege_role"])))) > 0:
+                    accessible_apps.append(app)
+    
+    def get_streamlit_pages():
+        pages = []
+        for app in accessible_apps:
+            page = st.Page(Path(conf.PAGES_DIR, app["page"]), title = app["name"], icon = app["page_icon"])
+            pages.append(page)
+        return pages
+    
     pages = {
         "🏠︎ Home": [
             st.Page(Path(conf.PAGES_DIR, "home.py"), title = "Apps", icon = ":material/home:", default = True),
         ],
-        "♕ Apps": [
-            st.Page(Path(conf.PAGES_DIR, "opsmate.py"), title = "OpsMate", icon = ":material/chat:"),
-            st.Page(Path(conf.PAGES_DIR, "analytics.py"), title = "Incident Analytics", icon = ":material/analytics:"),
-        ],
+        "♕ Apps": get_streamlit_pages(),
+        "❔ Help": [
+            st.Page(Path(conf.PAGES_DIR, "about.py"), title = "About", icon = ":material/info:"),
+        ]
     }
     
     page = st.navigation(pages, position = "top", expanded = True)
@@ -71,4 +94,5 @@ elif st.session_state.get('authentication_status') is False:
     
 elif st.session_state.get('authentication_status') is None:
     st.info('ⓘ Please enter your username and password')
+    clear_session_state_on_logout()
 

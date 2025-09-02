@@ -5,6 +5,16 @@ credentials:
       name: Pushpendu Choudhury
       password: $2b$12$7PPueEtInUbH3GCKONApkeAiardnfcbwF2kAhah86Bclr9ioiFOxy
       roles: ["user"]
+    analyst:
+      email: analyst@tcs.com
+      name: Analyst
+      password: $2b$12$OLkEPnSrCVvElX5XqQioaOQ8Zjs2GZISZNfd1FiMu9EgO3vMqtOMu
+      roles: ["analyst"]
+    test:
+      email: test@tcs.com
+      name: Test User
+      password: $2b$12$WTeOf9qtDX1xtTO0pJ1WV.GitelYZ0Y8RMYzeYibjv.OMj8bI9D7G
+      roles: []
     admin:
       email: admin@tcs.com
       name: Administrator
