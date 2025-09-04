@@ -467,6 +467,8 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                                     text_to_audio_section += chunk
                                 # --------------
                                 message_placeholder.markdown(full_response + "▌", unsafe_allow_html = True)
+                            if len(text_to_audio_section) == 0:
+                                text_to_audio_section = full_response
                             if track_token_usage:
                                 try:
                                     usage_data = callback.usage_metadata[model_name]
@@ -505,6 +507,8 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                                     text_to_audio_section += content
                                 # --------------
                                 message_placeholder.markdown(full_response + "▌", unsafe_allow_html = True)
+                            if len(text_to_audio_section) == 0:
+                                text_to_audio_section = full_response
                             if track_token_usage:
                                 try:
                                     usage_data = callback.usage_metadata[model_name]
@@ -595,6 +599,8 @@ if enable_voice:
                                         text_to_audio_section += chunk
                                     # --------------
                                     message_placeholder.markdown(full_response + "▌", unsafe_allow_html = True)
+                                if len(text_to_audio_section) == 0:
+                                    text_to_audio_section = full_response
                                 if track_token_usage:
                                     try:
                                         usage_data = callback.usage_metadata[model_name]
@@ -633,6 +639,8 @@ if enable_voice:
                                         text_to_audio_section += content
                                     # --------------
                                     message_placeholder.markdown(full_response + "▌", unsafe_allow_html = True)
+                                if len(text_to_audio_section) == 0:
+                                    text_to_audio_section = full_response
                                 if track_token_usage:
                                     try:
                                         usage_data = callback.usage_metadata[model_name]
