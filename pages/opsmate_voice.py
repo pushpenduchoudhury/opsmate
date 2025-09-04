@@ -4,6 +4,7 @@ import socket
 import chromadb
 import traceback
 import streamlit as st
+from utils import utils
 from pathlib import Path
 import config.conf as conf
 from dotenv import load_dotenv
@@ -25,30 +26,26 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains.history_aware_retriever import create_history_aware_retriever
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 load_dotenv()
 
 if not os.getenv("GOOGLE_API_KEY"):
     os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 if not os.getenv("OPENAI_API_KEY"):
     os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
-    
-cols4 = st.columns([0.8, 10, 1.5])
 
-
-def clear_messages():
-    st.session_state.chat_messages = st.session_state.chat_messages[:1]
 
 # Set Title
-title_col = st.columns([0.9, 11, 0.5])
-with title_col[0]:
-    st.image(image = str(Path(conf.ASSETS_DIR, "opsmate.gif")), use_container_width = True)
-with title_col[1]:
+logo_col, title_col, clear_col = st.columns([0.9, 11, 0.5])
+with logo_col:
+    st.image(image = str(Path(conf.ASSETS_DIR, "opsmate.gif")), width = "stretch")
+with title_col:
     st.header("NextGen OpsMate", divider = "rainbow", anchor = False)
-with title_col[2]:
+with clear_col:
+    def clear_messages():
+        st.session_state.voice_chat_messages = st.session_state.voice_chat_messages[:1]
     st.write("")
     st.write("")
-    st.button(":material/mop:", on_click = lambda: clear_messages(), type = "secondary", use_container_width = True)
+    st.button(":material/mop:", on_click = lambda: clear_messages(), type = "secondary", width = "stretch")
 
     
 # Initialize chat session in streamlit
@@ -99,7 +96,7 @@ ollama pull <model name>
 You can visit the website: https://ollama.com/library to get models names.
 """, icon = "⚠")
         st.stop()
-        
+    
     else:
         llm_models = ollama_models
 
@@ -121,7 +118,7 @@ elif model_provider == conf.GROQ_MODEL_PROVIDER:
         st.stop()
     else:
         llm_models = groq_models
-    
+
 elif model_provider == conf.OPENAI_MODEL_PROVIDER:
     openai_models = conf.OPENAI_MODELS
     
@@ -137,11 +134,27 @@ else:
 
 with st.sidebar:
     
+    if "voice_expander_label" not in st.session_state:
+        st.session_state.voice_expander_label = ":green[**ON**]"
+    if "enable_voice" not in st.session_state:
+        st.session_state.enable_voice = True
+        
     with model_settings:
         selected_model = st.selectbox("Model Name", options = llm_models, label_visibility = "collapsed", key = "selected_model")
         streaming = st.toggle(label="Streaming output", key = "streaming", value = True, help = "Enable streaming output for the assistant's response.")
         history_flag = st.toggle(label="Chat History", key="history", value = True, help = "Enable chat history or memory for the assistant's response.")
-    
+        
+    if st.session_state.enable_voice == False:
+        st.session_state.voice_expander_label = ":red[**OFF**]"
+    if st.session_state.enable_voice == True:
+        st.session_state.voice_expander_label = ":green[**ON**]"
+
+    with st.expander(f"Voice: {st.session_state.voice_expander_label}", icon = "🎙️", expanded = True):
+        enable_voice = st.toggle("Enable Voice", key = "enable_voice", value = st.session_state.enable_voice)
+        tts_engine = st.radio("Text-to-Speech Engine", options = conf.TTS_ENGINES.keys(), index = 1, horizontal = True, disabled = not enable_voice)
+        selected_voice = st.selectbox("Voice", options = conf.TTS_ENGINES[tts_engine]["voices"], disabled = not enable_voice)
+
+
     st.divider()
     
     st.markdown("## Instructions")
@@ -152,7 +165,6 @@ with st.sidebar:
 
     st.write(f""":grey[Hostname: {socket.gethostname()}]<br>
                 :grey[IP: {socket.gethostbyname(socket.gethostname())}]""", unsafe_allow_html = True)
-
 
 llm = init_chat_model(model = selected_model, model_provider = model_provider)
 embedding_function = OllamaEmbeddings(model = conf.EMBEDDING_MODEL)
@@ -312,8 +324,8 @@ collection_list = list_collections()
 if "admin" in st.session_state.get("roles"):
     cols1 = col1.columns([0.6, 0.1, 0.1])
     collection = cols1[0].selectbox("Collection", options = collection_list, key = "collection", label_visibility = "collapsed", index = 0, placeholder = "Select a Collection")
-    cols1[1].button(":material/add:", on_click = show_add_document, help = "Add Document to Selected Collection", use_container_width = True)
-    cols1[2].button(":material/delete:", type = "primary", on_click = lambda: delete_collection(collection_name = st.session_state.collection), help = "Delete Selected Collection", disabled = True if collection is None else False, use_container_width = True)
+    cols1[1].button(":material/add:", on_click = show_add_document, help = "Add Document to Selected Collection", width = "stretch")
+    cols1[2].button(":material/delete:", type = "primary", on_click = lambda: delete_collection(collection_name = st.session_state.collection), help = "Delete Selected Collection", disabled = True if collection is None else False, width = "stretch")
 else:
     collection = col1.selectbox("Collection", options = collection_list, key = "collection", label_visibility = "collapsed", index = 0, placeholder = "Select a Collection")
     
@@ -345,7 +357,7 @@ if st.session_state.collection is not None:
 if st.session_state.show_add_document:
     col3, col4, col5 = config_container.columns([0.7, 0.1, 0.01])
     col3.markdown("#### :blue[Add or Create RAG Sources]")
-    col4.button(":material/close:", type = "tertiary", on_click = hide_add_document, help = "Close", use_container_width = True)
+    col4.button(":material/close:", type = "tertiary", on_click = hide_add_document, help = "Close", width = "stretch")
     new_collection_name = config_container.text_input("New Collection Name", value = None, placeholder = "New Collection Name", label_visibility = "collapsed")
     source_type = config_container.radio("Source Type", options = ["Documents", "URL"], horizontal = True, label_visibility = "collapsed")
 
@@ -382,56 +394,142 @@ if st.session_state.show_add_document:
         config_container.button(f"Add URL to collection: '{st.session_state.collection}'" if new_collection_name is None or new_collection_name == "" else f"Create new collection: '{new_collection_name.replace(' ', '_')}'", on_click = lambda: load_rag_sources(collection_name = st.session_state.collection if new_collection_name is None or new_collection_name == "" else new_collection_name.replace(' ', '_'), source_type = "URL"), disabled = not uploaded_flg)
 
 # Get Conversational RAG chain
-if "chat_messages" not in st.session_state:
-    st.session_state.chat_messages = [{
+if "voice_chat_messages" not in st.session_state:
+    st.session_state.voice_chat_messages = [{
         "role": "assistant",
-        "content": "Hi there! How can I help you today?"
+        "content": "Hi there! How can I help you today?",
+        "audio": ""
     }]
 
 document_message_container = col2.container(height = 450, border = True)
 
-for message in st.session_state.chat_messages:
+for message in st.session_state.voice_chat_messages:
     with document_message_container:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            if message["audio"] != "":
+                st.audio(message["audio"], width = 300)
 
-# chat_input_col, audio_input_col = st.columns([0.9, 0.1])
 
-if user_prompt := st.chat_input(f"Ask {st.session_state.selected_model.split(' ')[0].title()}"):
-    user_input: dict[str, list] = {"role": "user", "content": user_prompt}
-    st.session_state.chat_messages.append(user_input)
+input_cols = st.columns([0.95, 0.05]) if enable_voice else st.columns(1)
+if enable_voice:
+    voice_button = input_cols[1].button(":material/mic:", help = "Use voice mode")
+
+if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_model.split(' ')[0].title()}"):
+    user_input: dict[str, list] = {"role": "user", "content": user_prompt, "audio": ""}
+    st.session_state.voice_chat_messages.append(user_input)
 
     with document_message_container:
         with st.chat_message(user_input["role"]):
             st.markdown(user_input["content"])
+            if user_input["audio"] != "":
+                st.audio(user_input["audio"], width = 300)
 
         with st.chat_message("assistant"):
-            with st.spinner(":grey[Generating...]"):
-                message_placeholder = st.empty()
-                full_response = ""
-                
-                try:
+            try:
+                with st.spinner(":grey[Thinking...]"):
+                    message_placeholder = st.empty()
+                    full_response = ""
+                    
                     if st.session_state.use_rag:
                         if streaming:
-                            for chunk in chain.pick("answer").stream({"chat_history": st.session_state.chat_messages[:-1] if history_flag else [{"role": "user", "content": ""}], "input": st.session_state.chat_messages[-1]["content"]}):
+                            for chunk in chain.pick("answer").stream({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}):
                                 full_response += chunk
                                 message_placeholder.markdown(full_response + "▌")
                         else:
-                            response = chain.invoke({"chat_history": st.session_state.chat_messages[:-1] if history_flag else [{"role": "user", "content": ""}], "input": st.session_state.chat_messages[-1]["content"]})
+                            response = chain.invoke({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]})
                             full_response = response["answer"]
                     else:
                         if streaming:
-                            for chunk in llm.stream(st.session_state.chat_messages):
+                            for chunk in llm.stream([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else {key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}):
                                 full_response += chunk.content
                                 message_placeholder.markdown(full_response + "▌")
                         else:
-                            response = llm.invoke(st.session_state.chat_messages)
+                            response = llm.invoke([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else {key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]})
                             full_response = response.content
-                        
-                except Exception as e:
-                    traceback_str = traceback.format_exc()
-                    full_response = f":red[Error: {traceback_str}]"
-                    # full_response = f":red[Error: {e}]"
+                    
+            except Exception as e:
+                full_response = f":red[Error: {str(e)}]"
+                message_placeholder.markdown(full_response)
+                st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": ""})
+                st.stop()
 
             message_placeholder.markdown(full_response)
-            st.session_state.chat_messages.append({"role": "assistant", "content": full_response})
+            
+            audio = ""
+            if enable_voice:
+                try:
+                    if tts_engine == "groq":
+                        audio = utils.text_to_speech_groq(full_response, voice = selected_voice)
+                    elif tts_engine == "native":
+                        audio = utils.text_to_speech_native(full_response, voice = selected_voice)
+                    st.audio(audio, width = 300)
+                except Exception as e:
+                    st.markdown(f":red[Error: {str(e)}]")
+            
+            st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": audio})
+
+if enable_voice:
+    if voice_button:
+        with document_message_container:
+            with st.chat_message("user"):
+                message_placeholder = st.empty()
+                try:
+                    with st.spinner(":grey[Listening...]"):
+                        user_audio_input = utils.audio_input()
+                    
+                    with st.spinner(":grey[Transcribing...]"):
+                        transcript = utils.speech_to_text(audio_data = user_audio_input)
+                        user_input: dict[str, list] = {"role": "user", "content": transcript, "audio": ""}
+                        st.session_state.voice_chat_messages.append(user_input)
+                except Exception as e:
+                    message_placeholder.markdown(f":red[Error: {str(e)}]")
+                    st.stop()
+                
+                st.markdown(user_input["content"])
+                if user_input["audio"] != "":
+                    st.audio(user_input["audio"], width = 300)
+            
+            with st.chat_message("assistant"):
+                try:
+                    with st.spinner(":grey[Thinking...]"):
+                        message_placeholder = st.empty()
+                        full_response = ""
+                        
+                        if st.session_state.use_rag:
+                            if streaming:
+                                for chunk in chain.pick("answer").stream({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}):
+                                    full_response += chunk
+                                    message_placeholder.markdown(full_response + "▌")
+                            else:
+                                response = chain.invoke({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]})
+                                full_response = response["answer"]
+                        else:
+                            if streaming:
+                                for chunk in llm.stream([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else [{key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}]):
+                                    full_response += chunk.content
+                                    message_placeholder.markdown(full_response + "▌")
+                            else:
+                                response = llm.invoke([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else [{key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}])
+                                full_response = response.content
+                            
+                except Exception as e:
+                    full_response = f":red[Error: {str(e)}]"
+                    message_placeholder.markdown(full_response)
+                    st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": ""})
+                    st.stop()
+
+                message_placeholder.markdown(full_response)
+                
+                audio = ""
+                if enable_voice:
+                    try:
+                        if tts_engine == "groq":
+                            audio = utils.text_to_speech_groq(full_response, voice = selected_voice)
+                        elif tts_engine == "native":
+                            audio = utils.text_to_speech_native(full_response, voice = selected_voice)
+                        st.audio(audio, autoplay = True, width = 300)
+                    except Exception as e:
+                        st.markdown(f":red[Error: {str(e)}]")
+                
+                st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": audio})
