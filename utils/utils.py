@@ -75,3 +75,41 @@ def text_to_speech_native(text, voice = None):
         audio_bytes = f.read()
     os.remove(tmp_path)
     return audio_bytes
+
+
+def is_image_file(filename):
+    valid_image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.ico'}
+    _, file_extension = os.path.splitext(filename)
+    return file_extension.lower() in valid_image_extensions
+
+def get_logo(name:str) -> str:
+    logos = {
+        "llama" : "ollama.png",
+        "meta" : "meta.png",
+        "deepseek" : "deepseek.png",
+        "gemini" : "gemini.png",
+        "gemma" : "gemma.png",
+        "mistral" : "mistral.png",
+        "qwen" : "qwen.png",
+        "gpt" : "openai.png",
+        "o1" : "openai.png",
+        "claude" : "claude.png",
+        "groq" : "groq.png",
+        "nemotron" : "nvidia.png",
+        "llava" : "llava.png",
+        "whisper" : "openai.png",
+        "user" : "user_2.png",
+        "human" : "user_2.png",
+        "compound" : "groq.png",
+        "allam" : "sdaia.png",
+        "play": "play_ht.png",
+    }
+    logo = "assistant"
+
+    if is_image_file(name):
+        logo = str(Path(conf.ASSETS_DIR, name))
+    else:
+        for key in logos.keys():
+            if key in name:
+                logo = str(Path(conf.ASSETS_DIR, logos[key]))
+    return logo

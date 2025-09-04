@@ -409,14 +409,18 @@ if "voice_chat_messages" not in st.session_state:
     st.session_state.voice_chat_messages = [{
         "role": "assistant",
         "content": "Hi there! How can I help you today?",
-        "audio": ""
+        "audio": "",
+        "avatar": utils.get_logo(selected_model)
     }]
+
+if len(st.session_state.voice_chat_messages) == 1:
+    st.session_state.voice_chat_messages[0]["avatar"] = utils.get_logo(selected_model)
 
 document_message_container = col2.container(height = 450, border = True)
 
 for message in st.session_state.voice_chat_messages:
     with document_message_container:
-        with st.chat_message(message["role"]):
+        with st.chat_message(message["role"], avatar = message["avatar"]):
             st.markdown(message["content"])
             if message["audio"] != "":
                 st.audio(message["audio"], width = 300)
@@ -427,16 +431,16 @@ if enable_voice:
     voice_button = input_cols[1].button(":material/mic:", help = "Use voice mode")
 
 if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_model.split(' ')[0].title()}"):
-    user_input: dict[str, list] = {"role": "user", "content": user_prompt, "audio": ""}
+    user_input: dict[str, list] = {"role": "user", "content": user_prompt, "audio": "", "avatar": utils.get_logo("user")}
     st.session_state.voice_chat_messages.append(user_input)
 
     with document_message_container:
-        with st.chat_message(user_input["role"]):
+        with st.chat_message(user_input["role"], avatar = utils.get_logo(user_input["avatar"])):
             st.markdown(user_input["content"])
             if user_input["audio"] != "":
                 st.audio(user_input["audio"], width = 300)
 
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar = utils.get_logo(selected_model)):
             try:
                 with st.spinner(":grey[Thinking...]"):
                     message_placeholder = st.empty()
@@ -447,20 +451,26 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                         if streaming:
                             if track_token_usage:
                                 callback = UsageMetadataCallbackHandler()
-                            for chunk in chain.pick("answer").stream({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}, config = {"callbacks": [callback]} if track_token_usage else None):
+                            for chunk in chain.pick("answer").stream({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}, config = {"callbacks": [callback]} if track_token_usage else None):
                                 full_response += chunk
                                 message_placeholder.markdown(full_response + "▌")
                             if track_token_usage:
-                                usage_data = callback.usage_metadata[model_name]
-                                full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                try:
+                                    usage_data = callback.usage_metadata[model_name]
+                                    full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                except Exception as e:
+                                    full_response += ":grey[ (Unable to extract metadata usage)]"
                         else:
                             if track_token_usage:
                                 callback = UsageMetadataCallbackHandler()
-                            response = chain.invoke({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}, config = {"callbacks": [callback]} if track_token_usage else None)
+                            response = chain.invoke({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}, config = {"callbacks": [callback]} if track_token_usage else None)
                             full_response = response["answer"]
                             if track_token_usage:
-                                usage_data = callback.usage_metadata[model_name]
-                                full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                try:
+                                    usage_data = callback.usage_metadata[model_name]
+                                    full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                except Exception as e:
+                                    full_response += ":grey[ (Unable to extract metadata usage)]"
                     else:
                         if streaming:
                             if track_token_usage:
@@ -470,17 +480,22 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                                 
                                 message_placeholder.markdown(full_response + "▌")
                             if track_token_usage:
-                                usage_data = callback.usage_metadata[model_name]
-                                full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                try:
+                                    usage_data = callback.usage_metadata[model_name]
+                                    full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                except Exception as e:
+                                    full_response += ":grey[ (Unable to extract metadata usage)]"
                         else:
                             if track_token_usage:
                                 callback = UsageMetadataCallbackHandler()
                             response = llm.invoke([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else {key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}, config = {"callbacks": [callback]} if track_token_usage else None)
                             full_response = response.content
                             if track_token_usage:
-                                usage_data = callback.usage_metadata[model_name]
-                                full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
-                    
+                                try:
+                                    usage_data = callback.usage_metadata[model_name]
+                                    full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                except Exception as e:
+                                    full_response += ":grey[ (Unable to extract metadata usage)]"
             except Exception as e:
                 if error_traceback:
                     traceback_str = traceback.format_exception(e)
@@ -488,7 +503,7 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                 else:
                     full_response = f":red[Error: {str(e)}]"
                 message_placeholder.markdown(full_response)
-                st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": ""})
+                st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": "", "avatar": utils.get_logo(model_name)})
                 st.stop()
 
             message_placeholder.markdown(full_response)
@@ -504,19 +519,19 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                 except Exception as e:
                     st.markdown(f":red[Error: {str(e)}]")
             
-            st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": audio})
+            st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": audio, "avatar": utils.get_logo(model_name)})
 
 if enable_voice:
     if voice_button:
         with document_message_container:
-            with st.chat_message("user"):
+            with st.chat_message("user", avatar = utils.get_logo("user")):
                 message_placeholder = st.empty()
                 try:
                     user_audio_input = utils.audio_input(adjust_for_ambient_noise = adjust_for_ambient_noise)
                     
                     with st.spinner(":grey[Transcribing...]"):
                         transcript = utils.speech_to_text(audio_data = user_audio_input)
-                        user_input: dict[str, list] = {"role": "user", "content": transcript, "audio": ""}
+                        user_input: dict[str, list] = {"role": "user", "content": transcript, "audio": "", "avatar": utils.get_logo("user")}
                         st.session_state.voice_chat_messages.append(user_input)
                 except Exception as e:
                     message_placeholder.markdown(f":red[Error: {str(e)}]")
@@ -526,7 +541,7 @@ if enable_voice:
                 if user_input["audio"] != "":
                     st.audio(user_input["audio"], width = 300)
             
-            with st.chat_message("assistant"):
+            with st.chat_message("assistant", avatar = utils.get_logo(selected_model)):
                 try:
                     with st.spinner(":grey[Thinking...]"):
                         message_placeholder = st.empty()
@@ -534,11 +549,11 @@ if enable_voice:
                         
                         if st.session_state.use_rag:
                             if streaming:
-                                for chunk in chain.pick("answer").stream({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}):
+                                for chunk in chain.pick("answer").stream({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}):
                                     full_response += chunk
                                     message_placeholder.markdown(full_response + "▌")
                             else:
-                                response = chain.invoke({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]})
+                                response = chain.invoke({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]})
                                 full_response = response["answer"]
                         else:
                             if streaming:
@@ -552,7 +567,7 @@ if enable_voice:
                 except Exception as e:
                     full_response = f":red[Error: {str(e)}]"
                     message_placeholder.markdown(full_response)
-                    st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": ""})
+                    st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": "", "avatar": utils.get_logo(model_name)})
                     st.stop()
 
                 message_placeholder.markdown(full_response)
@@ -568,4 +583,4 @@ if enable_voice:
                     except Exception as e:
                         st.markdown(f":red[Error: {str(e)}]")
                 
-                st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": audio})
+                st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": audio, "avatar": utils.get_logo(model_name)})
