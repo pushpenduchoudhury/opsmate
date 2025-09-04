@@ -41,10 +41,14 @@ def get_temp_file(suffix, data = None):
         tmp_path = tmp.name
     return tmp_path
 
-def audio_input():
+def audio_input(adjust_for_ambient_noise:bool = False):
     with sr.Microphone() as source:
         recognizer = sr.Recognizer()
-        audio = recognizer.listen(source)
+        if adjust_for_ambient_noise:
+            with st.spinner(":grey[Adjusting for ambient noise...]"):
+                recognizer.adjust_for_ambient_noise(source)
+        with st.spinner(":grey[Listening...]"):
+            audio = recognizer.listen(source)
     return audio.get_wav_data()
 
 def speech_to_text(audio_data):

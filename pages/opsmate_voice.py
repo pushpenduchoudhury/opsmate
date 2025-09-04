@@ -22,6 +22,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain.chat_models import init_chat_model
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain.chains.retrieval import create_retrieval_chain
+from langchain_core.callbacks import UsageMetadataCallbackHandler
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -151,10 +152,14 @@ with st.sidebar:
 
     with st.expander(f"Voice: {st.session_state.voice_expander_label}", icon = "🎙️", expanded = True):
         enable_voice = st.toggle("Enable Voice", key = "enable_voice", value = st.session_state.enable_voice)
+        adjust_for_ambient_noise = st.toggle("Adjust for Ambient Noise", key = "adjust_for_ambient_noise", value = False, disabled = not enable_voice)
         tts_engine = st.radio("Text-to-Speech Engine", options = conf.TTS_ENGINES.keys(), index = 1, horizontal = True, disabled = not enable_voice)
         selected_voice = st.selectbox("Voice", options = conf.TTS_ENGINES[tts_engine]["voices"], disabled = not enable_voice)
 
-
+    
+    with st.expander("Additional Settings", icon = "🔨"):
+        error_traceback = st.toggle("Error Traceback")
+        track_token_usage = st.toggle("Track Token Usage", value = True)
     st.divider()
     
     st.markdown("## Instructions")
@@ -262,10 +267,16 @@ def get_history_aware_retriever(vector_db: Chroma, llm):
 def get_retrieval_chain(vector_db: Chroma, llm):
     # Prompt template MUST contain input variable “context” (override by setting document_variable), which will be used for passing in the formatted documents.
     document_prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a helpful assistant. You will have to answer to user's prompts.
-                        You will have some context to help with your answers, but it might not always would be completely related or helpful. Do not quote references from the document provided, respond in your own language.
-                        You can also use your knowledge to assist answering the user's propmts.\n
-            {context}"""),
+            ("system", f"""You are an IT Support assistant. You will have to answer to user's questions and issues which is relevant to the context provided.
+						    Provide step by step guidance on the resolution of the user issues or questions. Don't give all the steps at one go if any relevant information is not found in the given context,
+                            Try to gather more information from the user in such scenarios to see if it matches with any of the issues in the context. Even after asking for 2 or 3 clarifications if the context is not found then say no such issues were reported earlier and reply using your own knowledge.
+						    You will have some context to help with your answers, but it might not always be completely related or helpful. 
+						    **Never quote references from the document provided, respond in your own language.**
+                            You can also use your knowledge to assist answering the user's propmts.
+						    **Never answer question which is not related to the context provided.**
+                            If any irrelevant questions are asked unrelated to the IT incidents, reply that you can only assist with IT incident issues.
+                            {"**Respond only in one or two sentence**" if enable_voice else ""}
+            {{context}}"""),
             MessagesPlaceholder(variable_name = "chat_history"),
             ("user", "{input}"),
         ])
@@ -430,26 +441,52 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                 with st.spinner(":grey[Thinking...]"):
                     message_placeholder = st.empty()
                     full_response = ""
+                    model_name = selected_model
                     
                     if st.session_state.use_rag:
                         if streaming:
-                            for chunk in chain.pick("answer").stream({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}):
+                            if track_token_usage:
+                                callback = UsageMetadataCallbackHandler()
+                            for chunk in chain.pick("answer").stream({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}, config = {"callbacks": [callback]} if track_token_usage else None):
                                 full_response += chunk
                                 message_placeholder.markdown(full_response + "▌")
+                            if track_token_usage:
+                                usage_data = callback.usage_metadata[model_name]
+                                full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
                         else:
-                            response = chain.invoke({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]})
+                            if track_token_usage:
+                                callback = UsageMetadataCallbackHandler()
+                            response = chain.invoke({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": "", "audio": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}, config = {"callbacks": [callback]} if track_token_usage else None)
                             full_response = response["answer"]
+                            if track_token_usage:
+                                usage_data = callback.usage_metadata[model_name]
+                                full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
                     else:
                         if streaming:
-                            for chunk in llm.stream([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else {key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}):
+                            if track_token_usage:
+                                callback = UsageMetadataCallbackHandler()
+                            for chunk in llm.stream([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else {key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}, config = {"callbacks": [callback]} if track_token_usage else None):
                                 full_response += chunk.content
+                                
                                 message_placeholder.markdown(full_response + "▌")
+                            if track_token_usage:
+                                usage_data = callback.usage_metadata[model_name]
+                                full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
                         else:
-                            response = llm.invoke([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else {key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]})
+                            if track_token_usage:
+                                callback = UsageMetadataCallbackHandler()
+                            response = llm.invoke([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else {key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}, config = {"callbacks": [callback]} if track_token_usage else None)
                             full_response = response.content
+                            if track_token_usage:
+                                usage_data = callback.usage_metadata[model_name]
+                                full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
                     
             except Exception as e:
-                full_response = f":red[Error: {str(e)}]"
+                if error_traceback:
+                    traceback_str = traceback.format_exception(e)
+                    full_response = f":red[Error: {traceback_str}]"
+                else:
+                    full_response = f":red[Error: {str(e)}]"
                 message_placeholder.markdown(full_response)
                 st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": ""})
                 st.stop()
@@ -475,8 +512,7 @@ if enable_voice:
             with st.chat_message("user"):
                 message_placeholder = st.empty()
                 try:
-                    with st.spinner(":grey[Listening...]"):
-                        user_audio_input = utils.audio_input()
+                    user_audio_input = utils.audio_input(adjust_for_ambient_noise = adjust_for_ambient_noise)
                     
                     with st.spinner(":grey[Transcribing...]"):
                         transcript = utils.speech_to_text(audio_data = user_audio_input)
