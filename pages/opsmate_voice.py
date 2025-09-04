@@ -447,19 +447,24 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                 with st.spinner(":grey[Thinking...]"):
                     message_placeholder = st.empty()
                     full_response = ""
+                    text_to_audio_section = ""
                     model_name = selected_model
                     
                     if st.session_state.use_rag:
                         if streaming:
                             if track_token_usage:
                                 callback = UsageMetadataCallbackHandler()
+                            record_section = False
                             for chunk in chain.pick("answer").stream({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}, config = {"callbacks": [callback]} if track_token_usage else None):
                                 # --------------
                                 if chunk == "<think>":
                                     chunk = chunk.replace("<think>", ":grey[**Reasoning**]: \n<blockquote>")
                                 elif chunk == "</think>":
                                     chunk = chunk.replace("</think>", "</blockquote>")
+                                    record_section = True
                                 full_response += chunk
+                                if record_section:
+                                    text_to_audio_section += chunk
                                 # --------------
                                 message_placeholder.markdown(full_response + "▌", unsafe_allow_html = True)
                             if track_token_usage:
@@ -467,24 +472,26 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                                     usage_data = callback.usage_metadata[model_name]
                                     full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
                                 except Exception as e:
-                                    full_response += ":grey[ \n *(Unable to extract metadata usage)*]"
+                                    full_response += ":grey[  \n *(Unable to extract metadata usage)*]"
                         else:
                             if track_token_usage:
                                 callback = UsageMetadataCallbackHandler()
                             response = chain.invoke({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}, config = {"callbacks": [callback]} if track_token_usage else None)
                             # --------------
                             full_response = response["answer"].replace("<think>", ":grey[**Reasoning**]: \n<blockquote>").replace("</think>", "</blockquote>")
+                            text_to_audio_section = full_response[full_response.find("</blockquote>")+len("</blockquoste>")-1:] if full_response.find("</blockquote>") != -1 else full_response
                             # --------------
                             if track_token_usage:
                                 try:
                                     usage_data = callback.usage_metadata[model_name]
                                     full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
                                 except Exception as e:
-                                    full_response += ":grey[ \n *(Unable to extract metadata usage)*]"
+                                    full_response += ":grey[  \n *(Unable to extract metadata usage)*]"
                     else:
                         if streaming:
                             if track_token_usage:
                                 callback = UsageMetadataCallbackHandler()
+                            record_section = False
                             for chunk in llm.stream([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else [{key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}], config = {"callbacks": [callback]} if track_token_usage else None):
                                 # --------------
                                 content = chunk.content
@@ -492,7 +499,10 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                                     content = content.replace("<think>", ":grey[**Reasoning**]: \n<blockquote>")
                                 elif "</think>" in content:
                                     content = content.replace("</think>", "</blockquote>")
+                                    record_section = True
                                 full_response += content
+                                if record_section:
+                                    text_to_audio_section += content
                                 # --------------
                                 message_placeholder.markdown(full_response + "▌", unsafe_allow_html = True)
                             if track_token_usage:
@@ -500,20 +510,21 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
                                     usage_data = callback.usage_metadata[model_name]
                                     full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
                                 except Exception as e:
-                                    full_response += ":grey[ \n *(Unable to extract metadata usage)*]"
+                                    full_response += ":grey[  \n *(Unable to extract metadata usage)*]"
                         else:
                             if track_token_usage:
                                 callback = UsageMetadataCallbackHandler()
                             response = llm.invoke([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else [{key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}], config = {"callbacks": [callback]} if track_token_usage else None)
                             # --------------
                             full_response = response.content.replace("<think>", ":grey[**Reasoning**]: \n<blockquote>").replace("</think>", "</blockquote>")
+                            text_to_audio_section = full_response[full_response.find("</blockquote>")+len("</blockquoste>")-1:] if full_response.find("</blockquote>") != -1 else full_response
                             # --------------
                             if track_token_usage:
                                 try:
                                     usage_data = callback.usage_metadata[model_name]
                                     full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
                                 except Exception as e:
-                                    full_response += ":grey[ \n *(Unable to extract metadata usage)*]"
+                                    full_response += ":grey[  \n *(Unable to extract metadata usage)*]"
             except Exception as e:
                 if error_traceback:
                     traceback_str = traceback.format_exception(e)
@@ -530,9 +541,9 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
             if enable_voice:
                 try:
                     if tts_engine == "groq":
-                        audio = utils.text_to_speech_groq(full_response, voice = selected_voice)
+                        audio = utils.text_to_speech_groq(text_to_audio_section, voice = selected_voice)
                     elif tts_engine == "native":
-                        audio = utils.text_to_speech_native(full_response, voice = selected_voice)
+                        audio = utils.text_to_speech_native(text_to_audio_section, voice = selected_voice)
                     st.audio(audio, width = 300)
                 except Exception as e:
                     st.markdown(f":red[Error: {str(e)}]")
@@ -564,25 +575,51 @@ if enable_voice:
                     with st.spinner(":grey[Thinking...]"):
                         message_placeholder = st.empty()
                         full_response = ""
+                        text_to_audio_section = ""
+                        model_name = selected_model
                         
                         if st.session_state.use_rag:
                             if streaming:
+                                if track_token_usage:
+                                    callback = UsageMetadataCallbackHandler()
+                                record_section = False
                                 for chunk in chain.pick("answer").stream({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]}):
                                     # --------------
                                     if "<think>" == chunk:
                                         chunk = chunk.replace("<think>", ":grey[**Reasoning**]: \n <blockquote> \n")
                                     elif "</think>" == chunk:
                                         chunk = chunk.replace("</think>", "</blockquote>")
+                                        record_section = True
                                     full_response += chunk
+                                    if record_section:
+                                        text_to_audio_section += chunk
                                     # --------------
                                     message_placeholder.markdown(full_response + "▌", unsafe_allow_html = True)
+                                if track_token_usage:
+                                    try:
+                                        usage_data = callback.usage_metadata[model_name]
+                                        full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                    except Exception as e:
+                                        full_response += ":grey[  \n *(Unable to extract metadata usage)*]"
                             else:
+                                if track_token_usage:
+                                    callback = UsageMetadataCallbackHandler()
                                 response = chain.invoke({"chat_history": [{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages[:-1]] if history_flag else [{"role": "user", "content": ""}], "input": st.session_state.voice_chat_messages[-1]["content"]})
                                 # --------------
                                 full_response = response["answer"].replace("<think>", ":grey[**Reasoning**]: \n<blockquote>").replace("</think>", "</blockquote>")
+                                text_to_audio_section = full_response[full_response.find("</blockquote>")+len("</blockquoste>")-1:] if full_response.find("</blockquote>") != -1 else full_response
                                 # --------------
+                                if track_token_usage:
+                                    try:
+                                        usage_data = callback.usage_metadata[model_name]
+                                        full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                    except Exception as e:
+                                        full_response += ":grey[  \n *(Unable to extract metadata usage)*]"
                         else:
                             if streaming:
+                                if track_token_usage:
+                                    callback = UsageMetadataCallbackHandler()
+                                record_section = False
                                 for chunk in llm.stream([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else [{key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}]):
                                     # --------------
                                     content = chunk.content
@@ -590,14 +627,32 @@ if enable_voice:
                                         content = content.replace("<think>", ":grey[**Reasoning**]: \n<blockquote>")
                                     elif "</think>" in content:
                                         content = content.replace("</think>", "</blockquote>")
+                                        record_section = True
                                     full_response += content
+                                    if record_section:
+                                        text_to_audio_section += content
                                     # --------------
                                     message_placeholder.markdown(full_response + "▌", unsafe_allow_html = True)
+                                if track_token_usage:
+                                    try:
+                                        usage_data = callback.usage_metadata[model_name]
+                                        full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                    except Exception as e:
+                                        full_response += ":grey[  \n *(Unable to extract metadata usage)*]"
                             else:
+                                if track_token_usage:
+                                    callback = UsageMetadataCallbackHandler()
                                 response = llm.invoke([{key: d[key] for key in ["role", "content"] if key in d} for d in st.session_state.voice_chat_messages] if history_flag else [{key: st.session_state.voice_chat_messages[-1][key] for key in ["role", "content"] if key in st.session_state.voice_chat_messages[-1]}])
                                 # --------------
                                 full_response = response.content.replace("<think>", ":grey[**Reasoning**]: \n<blockquote>").replace("</think>", "</blockquote>")
+                                text_to_audio_section = full_response[full_response.find("</blockquote>")+len("</blockquoste>")-1:] if full_response.find("</blockquote>") != -1 else full_response
                                 # --------------
+                                if track_token_usage:
+                                    try:
+                                        usage_data = callback.usage_metadata[model_name]
+                                        full_response += f":grey[  \n *Model: {model_name}  |  Input Tokens: {usage_data['input_tokens']}  |  Output Tokens: {usage_data['output_tokens']}  |  Total Tokens: {usage_data['total_tokens']}*]"
+                                    except Exception as e:
+                                        full_response += ":grey[  \n *(Unable to extract metadata usage)*]"
                                 
                 except Exception as e:
                     full_response = f":red[Error: {str(e)}]"
@@ -611,9 +666,9 @@ if enable_voice:
                 if enable_voice:
                     try:
                         if tts_engine == "groq":
-                            audio = utils.text_to_speech_groq(full_response, voice = selected_voice)
+                            audio = utils.text_to_speech_groq(text_to_audio_section, voice = selected_voice)
                         elif tts_engine == "native":
-                            audio = utils.text_to_speech_native(full_response, voice = selected_voice)
+                            audio = utils.text_to_speech_native(text_to_audio_section, voice = selected_voice)
                         st.audio(audio, autoplay = True, width = 300)
                     except Exception as e:
                         st.markdown(f":red[Error: {str(e)}]")
