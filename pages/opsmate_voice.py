@@ -291,32 +291,33 @@ if "embedded_documents" not in st.session_state:
     st.session_state.embedded_documents = []
     
 def load_rag_sources(collection_name, source_type):
-    with st.spinner("Embedding Document..."):
-        
-        if source_type == "Documents":
-            if st.session_state.selected_files:                
-                documents = document_loader(st.session_state.selected_files)
-        elif source_type == "URL":
-            if st.session_state.selected_url:
-                documents = url_loader(st.session_state.selected_url)
-        
-        # Create chunks from the documents
-        chunks = split_documents(documents)
-        if len(chunks) > 0:
-            try:
-                create_vectordb(chunks, collection_name)
-                if source_type == "Documents":
-                    st.toast(f"Document *{str([file.name for file in st.session_state.selected_files])[1:-1]}* loaded successfully", icon = "✅")
-                elif source_type == "URL":
-                    st.toast(f"URL *{str(st.session_state.selected_url)}* loaded successfully", icon = "✅")
+    with col1:
+        with st.spinner("Embedding Document..."):
+            
+            if source_type == "Documents":
+                if st.session_state.selected_files:                
+                    documents = document_loader(st.session_state.selected_files)
+            elif source_type == "URL":
+                if st.session_state.selected_url:
+                    documents = url_loader(st.session_state.selected_url)
+            
+            # Create chunks from the documents
+            chunks = split_documents(documents)
+            if len(chunks) > 0:
+                try:
+                    create_vectordb(chunks, collection_name)
+                    if source_type == "Documents":
+                        st.toast(f"Document *{str([file.name for file in st.session_state.selected_files])[1:-1]}* loaded successfully", icon = "✅")
+                    elif source_type == "URL":
+                        st.toast(f"URL *{str(st.session_state.selected_url)}* loaded successfully", icon = "✅")
 
-            except Exception as e:
-                traceback_str = traceback.format_exception(e)
-                st.error(traceback_str)
-                st.stop()
-        else:
-            st.toast(f"ⓘ Document *{str([file.name for file in st.session_state.selected_files])[1:-1] if source_type == 'Documents' else st.session_state.selected_url}* already loaded in Collection")
-            del st.session_state.show_add_document
+                except Exception as e:
+                    traceback_str = traceback.format_exception(e)
+                    st.error(traceback_str)
+                    st.stop()
+            else:
+                st.toast(f"ⓘ Document *{str([file.name for file in st.session_state.selected_files])[1:-1] if source_type == 'Documents' else st.session_state.selected_url}* already loaded in Collection")
+                del st.session_state.show_add_document
 
 if "show_add_document" not in st.session_state:
     st.session_state.show_add_document = False
@@ -432,6 +433,7 @@ input_cols = st.columns([0.95, 0.05]) if enable_voice else st.columns(1)
 if enable_voice:
     voice_button = input_cols[1].button(":material/mic:", help = "Use voice mode")
 
+############################## Text Input ##############################
 if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_model.split(' ')[0].title()}"):
     user_input: dict[str, list] = {"role": "user", "content": user_prompt, "audio": "", "avatar": utils.get_logo("user")}
     st.session_state.voice_chat_messages.append(user_input)
@@ -554,6 +556,7 @@ if user_prompt := input_cols[0].chat_input(f"Ask {st.session_state.selected_mode
             
             st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": audio, "avatar": utils.get_logo(model_name)})
 
+############################## Voice Input ##############################
 if enable_voice:
     if voice_button:
         with document_message_container:

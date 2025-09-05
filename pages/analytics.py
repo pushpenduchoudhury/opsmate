@@ -5,9 +5,10 @@ from pathlib import Path
 from prophet import Prophet
 import plotly.express as px
 from textblob import TextBlob
+from collections import Counter
 
 # Load the Excel file
-df = pd.read_excel(Path(conf.DATA_DIR, "dummy_issue_data_200.xlsx"), engine = "openpyxl")
+df = pd.read_excel(Path(conf.DATA_DIR, "IT_Support_Chatbot_Dataset_200_Enhanced.xlsx"), engine = "openpyxl")
 
 # Perform sentiment analysis
 def get_sentiment_category(text):
@@ -19,7 +20,7 @@ def get_sentiment_category(text):
     else:
         return "Neutral"
 
-df['sentiment_category'] = df['feedback'].apply(get_sentiment_category)
+df['sentiment_category'] = df['Feedback Received from User'].apply(get_sentiment_category)
 
 # Count sentiment categories
 sentiment_counts = df['sentiment_category'].value_counts().reset_index()
@@ -28,18 +29,15 @@ sentiment_counts.columns = ['sentiment', 'count']
 # Create pie chart
 fig_sentiment_pie = px.pie(sentiment_counts, names='sentiment', values='count', title='Sentiment Analysis of Feedback')
 
-# Load data
-file_path = Path(conf.DATA_DIR, "dummy_issue_data_200.xlsx")
-df = pd.read_excel(file_path, engine='openpyxl')
-df['creation_time'] = pd.to_datetime(df['creation_time'])
-df['closed_time'] = pd.to_datetime(df['closed_time'])
+df['creation_time'] = pd.to_datetime(df['Open Time'])
+df['closed_time'] = pd.to_datetime(df['Closure Time'])
 
 # Forecasting
-issue_counts = df.groupby(df['creation_time'].dt.date).size().reset_index(name='count')
+issue_counts = df.groupby(df['closed_time'].dt.date).size().reset_index(name='count')
 issue_counts.columns = ['ds', 'y']
 model = Prophet()
 model.fit(issue_counts)
-future = model.make_future_dataframe(periods=30)
+future = model.make_future_dataframe(periods=10)
 forecast = model.predict(future)
 fig_forecast = px.line(forecast, x='ds', y='yhat')
 fig_forecast.update_layout(xaxis_title='Date', yaxis_title='Predicted Issue Count')
@@ -54,7 +52,7 @@ def get_sentiment_category(text):
     else:
         return "Neutral"
 
-df['sentiment_category'] = df['feedback'].apply(get_sentiment_category)
+df['sentiment_category'] = df['Feedback Received from User'].apply(get_sentiment_category)
 sentiment_counts = df['sentiment_category'].value_counts().reset_index()
 sentiment_counts.columns = ['sentiment', 'count']
 fig_sentiment_pie = px.pie(sentiment_counts, names='sentiment', values='count')
@@ -63,23 +61,47 @@ fig_sentiment_pie = px.pie(sentiment_counts, names='sentiment', values='count')
 df['resolution_time_hours'] = (df['closed_time'] - df['creation_time']).dt.total_seconds() / 3600
 avg_resolution_time = df['resolution_time_hours'].mean()
 
+# Finding top 3 frequently occurring issues
+if 'Issue Raised' in df.columns:
+    # Drop NaNs and convert to list
+    issues = df['Issue Raised'].dropna().tolist()
+
+    # Count frequency
+    issue_counts = Counter(issues)
+
+    # Get top 3 issues
+    top_3 = issue_counts.most_common(3)
+
+    # Prepare data for Plotly
+    issues_names = [issue for issue, count in top_3]
+    issues_counts = [count for issue, count in top_3]
+    data = pd.DataFrame({"Issue": issues_names, "Count": issues_counts})
+
+    # Create Plotly bar chart
+    fig_top3 = px.bar(data, x="Issue", y="Count", title="Top 3 Issues Raised", color="Issue",
+                 labels={"Count": "Frequency", "Issue": "Issue"})
+
+    # Display chart in Streamlit
+    #st.plotly_chart(fig)
+
+#print(df)
 # Assignee distribution
-assignee_counts = df['assignee'].value_counts().reset_index()
-assignee_counts.columns = ['assignee', 'count']
-fig_assignee = px.bar(assignee_counts, x='assignee', y='count')
+assignee_counts =df['Assignee Name'].value_counts().reset_index()
+assignee_counts.columns = ['Assignee Name', 'count']
+fig_assignee = px.bar(assignee_counts, x='Assignee Name', y='count')
 fig_assignee.update_layout(xaxis_title='Assignee Name', yaxis_title='Issues Count')
 
 # Average resolution time per assignee
-avg_time_per_assignee = df.groupby('assignee')['resolution_time_hours'].mean().reset_index()
+avg_time_per_assignee = df.groupby('Assignee Name')['resolution_time_hours'].mean().reset_index()
 fig_avg_time_assignee = px.bar(
     avg_time_per_assignee,
-    x='assignee',
+    x='Assignee Name',
     y='resolution_time_hours'
 )
 fig_avg_time_assignee.update_layout(xaxis_title='Assignee Name', yaxis_title='Average Resolution Time (hours)')
-
+print(df)
 # Status distribution
-status_counts = df['resolution_status'].value_counts().reset_index()
+status_counts = df['Resolution_status'].value_counts().reset_index()
 status_counts.columns = ['status', 'count']
 fig_status = px.pie(status_counts, names='status', values='count')
 
@@ -90,7 +112,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "Forecasting",
     "Sentiment Analysis",
     "Assignee Overview",
-    "Status Distribution",
+    "Frequently Occurring Issues",
     "Resolution Time"
 ])
 
@@ -109,14 +131,14 @@ with tab3:
     st.plotly_chart(fig_avg_time_assignee)
 
 with tab4:
-    st.subheader("Issue Status Distribution")
-    st.plotly_chart(fig_status)
+    st.subheader("Frequently Occurring Issues")
+    st.plotly_chart(fig_top3)
 
 with tab5:
     st.subheader("Average Resolution Time")
     st.write(f"Average resolution time: {avg_resolution_time:.2f} hours")
 
- 
+
 ############################################ Subham ####################################################
 
 
