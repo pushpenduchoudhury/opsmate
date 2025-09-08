@@ -1,3 +1,4 @@
+import io
 import os
 import uuid
 import socket
@@ -607,18 +608,25 @@ if user_input:
             message_placeholder.markdown(full_response, unsafe_allow_html = True)
             
             ####### LLM Output - Text To Speech ########
-            audio = ""
+            audio_bytes = None
             if enable_voice:
                 try:
-                    if tts_engine == "groq":
-                        audio = utils.text_to_speech_groq(text_to_audio_section.replace("#", "").strip(), voice = selected_voice)
-                    elif tts_engine == "native":
-                        audio = utils.text_to_speech_native(text_to_audio_section.replace("#", "").strip(), voice = selected_voice)
-                    st.audio(audio, width = 300, autoplay = True if user_input["input_method"] == "voice" else False)
+                    with st.spinner("Generating audio..."):
+                        clean_text = text_to_audio_section.replace("#", "").strip()
+                        if tts_engine == "groq":
+                            audio_bytes = utils.text_to_speech_groq(clean_text, voice = selected_voice)
+                        elif tts_engine == "native":
+                            audio_bytes = utils.text_to_speech_native(clean_text, voice = selected_voice)
+                        
+                        audio_io = io.BytesIO(audio_bytes)
+                        audio_io.seek(0)
+                            
+                    st.audio(data = audio_io, width = 300, autoplay = user_input["input_method"] == "voice")
+                
                 except Exception as e:
                     traceback_str = str(e)
                     if error_traceback:
                         traceback_str = traceback.format_exception(e)
                     st.markdown(f":red[Error: {traceback_str}]")
             
-            st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": audio, "avatar": utils.get_logo(model_name)})
+            st.session_state.voice_chat_messages.append({"role": "assistant", "content": full_response, "audio": audio_io, "avatar": utils.get_logo(model_name)})
