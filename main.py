@@ -30,7 +30,7 @@ st.markdown(
 st.set_page_config(
     page_title = "IT Support Desk",
     page_icon = "🕵🏻",
-    layout = "centered",
+    layout = "wide",
     initial_sidebar_state = "expanded"
 )
 
