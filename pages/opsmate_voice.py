@@ -116,7 +116,7 @@ elif model_provider == conf.GROQ_MODEL_PROVIDER:
     groq_models = conf.GROQ_MODELS
     
     if len(groq_models) == 0:
-        st.info("No Groq models found...! Please configure a Gemini model to proceed.", icon = "⚠")
+        st.info("No Groq models found...! Please configure a Groq model to proceed.", icon = "⚠")
         st.stop()
     else:
         llm_models = groq_models
@@ -125,7 +125,7 @@ elif model_provider == conf.OPENAI_MODEL_PROVIDER:
     openai_models = conf.OPENAI_MODELS
     
     if len(openai_models) == 0:
-        st.info("No OpenAI models found...! Please configure a Gemini model to proceed.", icon = "⚠")
+        st.info("No OpenAI models found...! Please configure a OpenAI model to proceed.", icon = "⚠")
         st.stop()
     else:
         llm_models = openai_models
@@ -269,16 +269,29 @@ def get_history_aware_retriever(vector_db: Chroma, llm):
 
 def get_retrieval_chain(vector_db: Chroma, llm):
     # Prompt template MUST contain input variable “context” (override by setting document_variable), which will be used for passing in the formatted documents.
+    # document_prompt = ChatPromptTemplate.from_messages([
+    #         ("system", f"""You are an IT Support assistant. You will have to answer to user's questions and issues which is relevant to the context provided.
+	# 					    Provide step by step guidance on the resolution of the user issues or questions. Don't give all the steps at one go if any relevant information is not found in the given context,
+    #                         Try to gather more information from the user in such scenarios to see if it matches with any of the issues in the context. Even after asking for 2 or 3 clarifications if the context is not found then say no such issues were reported earlier and reply using your own knowledge.
+	# 					    You will have some context to help with your answers, but it might not always be completely related or helpful. 
+	# 					    **Never quote references from the document provided, respond in your own language.**
+    #                         You can also use your knowledge to assist answering the user's propmts.
+	# 					    **Never answer question which is not related to the context provided.**
+    #                         If any irrelevant questions are asked unrelated to the IT incidents, reply that you can only assist with IT incident issues.
+    #                         {"**Respond only in one or two sentence**" if enable_voice else ""}
+    #         {{context}}"""),
+    #         MessagesPlaceholder(variable_name = "chat_history"),
+    #         ("user", "{input}"),
+    #     ])
     document_prompt = ChatPromptTemplate.from_messages([
             ("system", f"""You are an IT Support assistant. You will have to answer to user's questions and issues which is relevant to the context provided.
-						    Provide step by step guidance on the resolution of the user issues or questions. Don't give all the steps at one go if any relevant information is not found in the given context,
-                            Try to gather more information from the user in such scenarios to see if it matches with any of the issues in the context. Even after asking for 2 or 3 clarifications if the context is not found then say no such issues were reported earlier and reply using your own knowledge.
+						    Provide step by step guidance on the resolution of the user issues or questions.
 						    You will have some context to help with your answers, but it might not always be completely related or helpful. 
 						    **Never quote references from the document provided, respond in your own language.**
                             You can also use your knowledge to assist answering the user's propmts.
 						    **Never answer question which is not related to the context provided.**
                             If any irrelevant questions are asked unrelated to the IT incidents, reply that you can only assist with IT incident issues.
-                            {"**Respond only in one or two sentence**" if enable_voice else ""}
+                            **Respond only in one or two sentence**
             {{context}}"""),
             MessagesPlaceholder(variable_name = "chat_history"),
             ("user", "{input}"),
@@ -478,6 +491,7 @@ if enable_voice:
 if user_input:
     with document_message_container:
         with st.chat_message("assistant", avatar = utils.get_logo(selected_model)):
+            audio_io = ""
             try:
                 with st.spinner(":grey[Thinking...]"):
                     message_placeholder = st.empty()
